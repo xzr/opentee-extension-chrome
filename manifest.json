@@ -1,0 +1,17 @@
+{
+  "key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDcBHwzDvyBQ6bDppkIs9MP4ksKqCMyXQ/A52JivHZKh4YO/9vJsT3oaYhSpDCE9RPocOEQvwsHsFReW2nUEc6OLLyoCFFxIb7KkLGsmfakkut/fFdNJYh0xOTbSN8YvLWcqph09XAY2Y/f0AL7vfO1cuCqtkMt8hFrBGWxDdf9CQIDAQAB",
+  "manifest_version": 2,
+
+  "name": "Open-TEE dev",
+  "description": "Open-TEE Security Extension",
+  "version": "0.0.1",
+
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "app": {
+    "launch": {
+      "local_path": "popup.html"
+    }
+  }
+}

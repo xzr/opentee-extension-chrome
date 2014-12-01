@@ -1,0 +1,9 @@
+{
+  "name": "com.intel.chrome.opentee.proxy",
+  "description": "OpenTEE Native Messaging Api proxy host",
+  "path": "/home/apellikk/studies/bsc/dev/tee_proxy.py",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://add_the_tee_plugin_here/"
+  ]
+}
