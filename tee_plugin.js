@@ -1,5 +1,4 @@
-
-var port = null;
+var g_port = null;
 var g_mode = null;
 
 var mode_enum = Object.freeze( {
@@ -8,14 +7,6 @@ var mode_enum = Object.freeze( {
   "DECRYPT" : 2,
   "TEST" : 3
 })
-
-var getKeys = function(obj) {
-  var keys = [];
-  for(var key in obj){
-    keys.push(key);
-  }
-  return keys;
-}
 
 function showMessage(text) {
   document.getElementById('mode-specific-msg').innerHTML = "<p>" + text + "</p>" + "<hr>";
@@ -89,60 +80,53 @@ function updateUiState() {
       break;
   }
 
-  document.getElementById('connect-button').style.display = show_connect;
-  document.getElementById('input-text').style.display = show_input_text;
-  document.getElementById('input-data').style.display = show_input_data;
-  document.getElementById('send-message-button').style.display = show_button_send;
-  document.getElementById('mode-select-decrypt').style.display = show_button_decrypt;
-  document.getElementById('mode-select-test').style.display = show_button_test;
-  document.getElementById('response').style.display = show_response;
-  document.getElementById('mode-specific-msg').style.display = show_mode_specific;
+    document.getElementById('connect-button').style.display = show_connect;
+    document.getElementById('input-text').style.display = show_input_text;
+    document.getElementById('input-data').style.display = show_input_data;
+    document.getElementById('send-message-button').style.display = show_button_send;
+    document.getElementById('mode-select-decrypt').style.display = show_button_decrypt;
+    document.getElementById('mode-select-test').style.display = show_button_test;
+    document.getElementById('response').style.display = show_response;
+    document.getElementById('mode-specific-msg').style.display = show_mode_specific;
 
 }
 
-
+//this function passes the message to the parser which passes it to appropriate crypto function
+//which in turn passes it to the CA
 function sendNativeMessage(message) {
   message = {"text": document.getElementById('input-text').value};
-  port.postMessage(message);
+  g_port.postMessage(message);
   appendMessage("Sent message: <b>" + JSON.stringify(message) + "</b>");
 }
 
-function onNativeMessage(message) {
-  appendMessage("Received message: <b>" + JSON.stringify(message) + "</b>");
-}
-
-function onDisconnected() {
-  appendMessage("Failed to connect: " + chrome.runtime.lastError.message);
-  port = null;
-  g_mode = "NOT_CONNECTED";
-  updateUiState;
-}
-
-function onTestMode() {
-  g_mode = "TEST";
-  updateUiState();
-}
-
-function onDecryptMode() {
-  g_mode = "DECRYPT";
-  updateUiState();
-}
 
 function connect() {
-  var hostName = "com.intel.chrome.opentee.proxy";
-  appendMessage("Connecting to native messaging host <b>" + hostName + "</b>");
-  port = chrome.runtime.connectNative(hostName);
-  port.onDisconnect.addListener(onDisconnected);
-  port.onMessage.addListener(onNativeMessage);
+  var hostname = "com.intel.chrome.opentee.proxy";
+  appendMessage("Connecting to native messaging host <b>" + hostname + "</b>");
+  var ret = tee_connect(hostname);
 
-  if (port){
+  if (ret){
     g_mode = "CONNECTED";
-    appendMessage("CONNECTED to native messaging host <b>" + hostName + "</b>");
+    appendMessage("CONNECTED to native messaging host <b>" + hostname + "</b>");
   }
   updateUiState();
 }
 
+function loadScript(name) {
+  var script = document.createElement('script');
+  script.setAttribute("type","text/javascript");
+  //script.setAttribute("src",name);
+  script.src = chrome.extension.getURL(name);
+  document.head.appendChild(script);
+  //document.getElementsByTagName("head")[0].appendChild( script );
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+  //load libs
+  //loadScript("tee_crypto.js");
+  //loadScript("tee_eventhandler.js");
+  //loadScript("tee_messaging.js");
+
   document.getElementById('connect-button').addEventListener(
     'click', connect);
   document.getElementById('send-message-button').addEventListener(

@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include <sstream>
 
+//rapidjson
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+
 extern "C" {
   #include "tee_client_api.h"
 }
@@ -83,9 +88,10 @@ int main()
 {
   std::string message = "";
   TEEC_Result ret = TEEC_SUCCESS;
-
+  int looper = 0;
   //listener loop
   while (1) {
+    looper++;
     unsigned int length = 0;
 
     for (int i = 0; i < 4; i++) {
@@ -102,9 +108,10 @@ int main()
 
     std::stringstream ss;
     ss << ret;
+    ss << " " << looper;
 
     if (ret == TEEC_SUCCESS) {
-      message = "{\"text\":\"Connect to TEE success\"}";
+      message = "{\"text\":\"Connect to TEE success " + ss.str() + "\"}";
     } else {
       message = "{\"text\":\"Connect to TEE failure with error " + ss.str() + "\"}";
     }
