@@ -20,3 +20,13 @@ function onDecryptMode() {
   g_mode = "DECRYPT";
   updateUiState();
 }
+
+function onEncryptMode() {
+  g_mode = "ENCRYPT";
+  updateUiState();
+}
+
+function onAddkeyMode() {
+  g_mode = "ADDKEY";
+  updateUiState();
+}
