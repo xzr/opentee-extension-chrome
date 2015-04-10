@@ -1,6 +1,6 @@
 
 function onNativeMessage(msg) {
-  appendMessage("Received message: <b>" + JSON.stringify(msg) + "</b>");
+  appendMessage("Received message: " + JSON.stringify(msg));
   tee_parse_json(msg);
 }
 

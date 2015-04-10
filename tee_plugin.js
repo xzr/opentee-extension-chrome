@@ -11,11 +11,11 @@ var mode_enum = Object.freeze( {
 })
 
 function showMessage(text) {
-  document.getElementById('mode-specific-msg').innerHTML = "<p>" + text + "</p>" + "<hr>";
+  document.getElementById('mode-specific-msg').innerHTML = "<p>" + text + "</p>" + "<hr>";;
 }
 
 function appendMessage(text) {
-  document.getElementById('response').innerHTML += "<p>" + text + "</p>";
+  document.getElementById('responsebox').innerHTML += text + "\n";
 }
 
 function updateUiState() {
@@ -33,6 +33,8 @@ function updateUiState() {
   var show_button_test = HIDE;
   var show_response = HIDE;
   var show_mode_specific = SHOW;
+  var show_mode_specific_input = HIDE;
+  var show_mode_specific_output = HIDE;
 
   switch (g_mode) {
     case "NOT_CONNECTED":
@@ -46,6 +48,8 @@ function updateUiState() {
       show_button_test = HIDE;
       show_response = HIDE;
       show_mode_specific = SHOW;
+      show_mode_specific_input = HIDE;
+      show_mode_specific_output = HIDE;
       showMessage("Please connect to TEE");
       break;
     case "CONNECTED":
@@ -59,6 +63,8 @@ function updateUiState() {
       show_button_test = SHOW;
       show_response = SHOW;
       show_mode_specific = SHOW;
+      show_mode_specific_input = HIDE;
+      show_mode_specific_output = HIDE;
       showMessage("You are connected, please select mode");
       break;
     case "DECRYPT":
@@ -72,6 +78,8 @@ function updateUiState() {
       show_button_test = SHOW;
       show_response = SHOW;
       show_mode_specific = SHOW;
+      show_mode_specific_input = SHOW;
+      show_mode_specific_output = SHOW;
       showMessage("You are connected, DECRYPT mode");
       break;
     case "TEST":
@@ -85,11 +93,13 @@ function updateUiState() {
       show_button_test = SHOW;
       show_response = SHOW;
       show_mode_specific = SHOW;
+      show_mode_specific_input = HIDE;
+      show_mode_specific_output = HIDE;
       showMessage("You are connected, TEST mode");
       break;
     case "ENCRYPT":
       show_connect = HIDE;
-      show_input_text = SHOW;
+      show_input_text = HIDE;
       show_input_data = HIDE;
       show_button_send = SHOW;
       show_button_decrypt = SHOW;
@@ -98,6 +108,8 @@ function updateUiState() {
       show_button_test = SHOW;
       show_response = SHOW;
       show_mode_specific = SHOW;
+      show_mode_specific_input = SHOW;
+      show_mode_specific_output = SHOW;
       showMessage("You are connected, ENCRYPT mode");
       break;
     case "ADDKEY":
@@ -111,6 +123,7 @@ function updateUiState() {
       show_button_test = SHOW;
       show_response = SHOW;
       show_mode_specific = SHOW;
+      show_mode_specific_input = HIDE;
       showMessage("You are connected, ADDKEY mode");
       break;
     default:
@@ -120,7 +133,7 @@ function updateUiState() {
 
   document.getElementById('connect-button').style.display = show_connect;
   document.getElementById('input-text').style.display = show_input_text;
-  document.getElementById('input-data').style.display = show_input_data;
+  //document.getElementById('input-data').style.display = show_input_data;
   document.getElementById('send-message-button').style.display = show_button_send;
   document.getElementById('mode-select-decrypt').style.display = show_button_decrypt;
   document.getElementById('mode-select-test').style.display = show_button_test;
@@ -128,7 +141,8 @@ function updateUiState() {
   document.getElementById('mode-select-addkey').style.display = show_button_addkey;
   document.getElementById('response').style.display = show_response;
   document.getElementById('mode-specific-msg').style.display = show_mode_specific;
-
+  document.getElementById('mode-specific-input').style.display = show_mode_specific_input;
+  document.getElementById('mode-specific-output').style.display = show_mode_specific_output;
 }
 
 //this function passes the message to the parser which passes it to appropriate crypto function
@@ -137,18 +151,18 @@ function sendNativeMessage(message) {
   //make this do the right stuff babes
   message = {"text": document.getElementById('input-text').value};
   g_port.postMessage(message);
-  appendMessage("Sent message: <b>" + JSON.stringify(message) + "</b>");
+  appendMessage("Sent message: " + JSON.stringify(message));
 }
 
 
 function connect() {
   var hostname = "com.intel.chrome.opentee.proxy";
-  appendMessage("Connecting to native messaging host <b>" + hostname + "</b>");
+  appendMessage("Connecting to native messaging host " + hostname);
   var ret = tee_connect(hostname);
 
   if (ret){
     g_mode = "CONNECTED";
-    appendMessage("CONNECTED to native messaging host <b>" + hostname + "</b>");
+    appendMessage("CONNECTED to native messaging host " + hostname);
   }
   updateUiState();
 }
