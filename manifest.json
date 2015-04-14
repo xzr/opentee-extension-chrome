@@ -7,11 +7,20 @@
   "version": "0.0.1",
 
   "permissions": [
-    "nativeMessaging"
+    "nativeMessaging",
+    "https://ajax.googleapis.com/"
   ],
   "app": {
     "launch": {
       "local_path": "popup.html"
     }
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*", "file://*"],
+      "js": ["gmail/jquery.js","gmail/replace.js"],
+      "run_at":"document_idle"
+    }
+  ]
+
 }

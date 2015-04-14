@@ -10,12 +10,26 @@ var mode_enum = Object.freeze( {
   "ADDKEY" : 5
 })
 
+function utf8_to_b64(str) {
+    return window.btoa(unescape(encodeURIComponent(str)));
+}
+
+function b64_to_utf8(str) {
+    return decodeURIComponent(escape(window.atob(str)));
+}
+
 function showMessage(text) {
   document.getElementById('mode-specific-msg').innerHTML = "<p>" + text + "</p>" + "<hr>";;
 }
 
 function appendMessage(text) {
-  document.getElementById('responsebox').innerHTML += text + "\n";
+  var responsebox = document.getElementById('responsebox');
+  responsebox.innerHTML += text + "\n";
+  responsebox.scrollTop = responsebox.scrollHeight;
+}
+
+function displayResponse(text) {
+  document.getElementById('mode-specific-outputbox').innerHTML = text;
 }
 
 function updateUiState() {
@@ -24,8 +38,6 @@ function updateUiState() {
 
   //variables to control the visibility of different elements
   var show_connect = HIDE;
-  var show_input_text = HIDE;
-  var show_input_data = HIDE;
   var show_button_send = HIDE;
   var show_button_decrypt = HIDE;
   var show_button_encrypt = HIDE;
@@ -34,13 +46,12 @@ function updateUiState() {
   var show_response = HIDE;
   var show_mode_specific = SHOW;
   var show_mode_specific_input = HIDE;
+  var show_mode_specific_inputbox = HIDE;
   var show_mode_specific_output = HIDE;
 
   switch (g_mode) {
     case "NOT_CONNECTED":
       show_connect = SHOW;
-      show_input_text = HIDE;
-      show_input_data = HIDE;
       show_button_send = HIDE;
       show_button_decrypt = HIDE;
       show_button_encrypt = HIDE;
@@ -49,13 +60,12 @@ function updateUiState() {
       show_response = HIDE;
       show_mode_specific = SHOW;
       show_mode_specific_input = HIDE;
+      show_mode_specific_inputbox = HIDE;
       show_mode_specific_output = HIDE;
       showMessage("Please connect to TEE");
       break;
     case "CONNECTED":
       show_connect = HIDE;
-      show_input_text = HIDE;
-      show_input_data = HIDE;
       show_button_send = HIDE;
       show_button_decrypt = SHOW;
       show_button_encrypt = SHOW;
@@ -64,13 +74,12 @@ function updateUiState() {
       show_response = SHOW;
       show_mode_specific = SHOW;
       show_mode_specific_input = HIDE;
+      show_mode_specific_inputbox = HIDE;
       show_mode_specific_output = HIDE;
       showMessage("You are connected, please select mode");
       break;
     case "DECRYPT":
       show_connect = HIDE;
-      show_input_text = SHOW;
-      show_input_data = SHOW;
       show_button_send = SHOW;
       show_button_decrypt = SHOW;
       show_button_encrypt = SHOW;
@@ -79,28 +88,12 @@ function updateUiState() {
       show_response = SHOW;
       show_mode_specific = SHOW;
       show_mode_specific_input = SHOW;
+      show_mode_specific_inputbox = SHOW;
       show_mode_specific_output = SHOW;
       showMessage("You are connected, DECRYPT mode");
       break;
     case "TEST":
       show_connect = HIDE;
-      show_input_text = SHOW;
-      show_input_data = HIDE;
-      show_button_send = SHOW;
-      show_button_decrypt = SHOW;
-      show_button_encrypt = SHOW;
-      show_button_addkey = SHOW;
-      show_button_test = SHOW;
-      show_response = SHOW;
-      show_mode_specific = SHOW;
-      show_mode_specific_input = HIDE;
-      show_mode_specific_output = HIDE;
-      showMessage("You are connected, TEST mode");
-      break;
-    case "ENCRYPT":
-      show_connect = HIDE;
-      show_input_text = HIDE;
-      show_input_data = HIDE;
       show_button_send = SHOW;
       show_button_decrypt = SHOW;
       show_button_encrypt = SHOW;
@@ -109,13 +102,12 @@ function updateUiState() {
       show_response = SHOW;
       show_mode_specific = SHOW;
       show_mode_specific_input = SHOW;
-      show_mode_specific_output = SHOW;
-      showMessage("You are connected, ENCRYPT mode");
+      show_mode_specific_inputbox = HIDE;
+      show_mode_specific_output = HIDE;
+      showMessage("You are connected, TEST mode");
       break;
-    case "ADDKEY":
+    case "ENCRYPT":
       show_connect = HIDE;
-      show_input_text = SHOW;
-      show_input_data = HIDE;
       show_button_send = SHOW;
       show_button_decrypt = SHOW;
       show_button_encrypt = SHOW;
@@ -123,17 +115,31 @@ function updateUiState() {
       show_button_test = SHOW;
       show_response = SHOW;
       show_mode_specific = SHOW;
-      show_mode_specific_input = HIDE;
+      show_mode_specific_input = SHOW;
+      show_mode_specific_inputbox = SHOW;
+      show_mode_specific_output = SHOW;
+      showMessage("You are connected, ENCRYPT mode");
+      break;
+    case "ADDKEY":
+      show_connect = HIDE;
+      show_button_send = SHOW;
+      show_button_decrypt = SHOW;
+      show_button_encrypt = SHOW;
+      show_button_addkey = SHOW;
+      show_button_test = SHOW;
+      show_response = SHOW;
+      show_mode_specific = SHOW;
+      show_mode_specific_input = SHOW;
+      show_mode_specific_inputbox = HIDE;
+      show_mode_specific_output = HIDE;
       showMessage("You are connected, ADDKEY mode");
       break;
     default:
-      console.log("something went tits up");
+      console.log("something went boogers up");
       break;
   }
 
   document.getElementById('connect-button').style.display = show_connect;
-  document.getElementById('input-text').style.display = show_input_text;
-  //document.getElementById('input-data').style.display = show_input_data;
   document.getElementById('send-message-button').style.display = show_button_send;
   document.getElementById('mode-select-decrypt').style.display = show_button_decrypt;
   document.getElementById('mode-select-test').style.display = show_button_test;
@@ -142,6 +148,7 @@ function updateUiState() {
   document.getElementById('response').style.display = show_response;
   document.getElementById('mode-specific-msg').style.display = show_mode_specific;
   document.getElementById('mode-specific-input').style.display = show_mode_specific_input;
+  document.getElementById('mode-specific-inputbox').style.display = show_mode_specific_inputbox;
   document.getElementById('mode-specific-output').style.display = show_mode_specific_output;
 }
 
@@ -149,11 +156,50 @@ function updateUiState() {
 //which in turn passes it to the CA
 function sendNativeMessage(message) {
   //make this do the right stuff babes
-  message = {"text": document.getElementById('input-text').value};
-  g_port.postMessage(message);
-  appendMessage("Sent message: " + JSON.stringify(message));
+  //TODO check that message is json object
+  if (message !== null)
+  {
+      g_port.postMessage(message);
+      appendMessage("Sent message: " + JSON.stringify(message));
+  }
 }
 
+function nativeMessageSendHandler() {
+  sendNativeMessage(nativeMessageConstructor());
+}
+
+function nativeMessageConstructor() {
+  var json = null;
+  //create the json to be sent and return that
+  switch (g_mode) {
+    case "NOT_CONNECTED":
+      //error
+      break;
+    case "CONNECTED":
+      //error
+      //button should not be visible here
+      break;
+    case "DECRYPT":
+      var payload = document.getElementById('mode-specific-inputbox').value;
+      var key = document.getElementById('mode-specific-input').value;
+      json = {"text":"decrypt", "key":key, "payload":payload};
+      break;
+    case "TEST":
+      var input = document.getElementById('mode-specific-input').value;
+      json = {"text":input};
+      break;
+    case "ENCRYPT":
+      var payload = document.getElementById('mode-specific-inputbox').value;
+      var key = document.getElementById('mode-specific-input').value;
+      json = {"text":"encrypt", "key":key, "payload":utf8_to_b64(payload)};
+      break;
+    case "ADDKEY":
+      var key = document.getElementById('mode-specific-input').value;
+      json = {"text":"addkey", "key":key};
+      break;
+  }
+  return json;
+}
 
 function connect() {
   var hostname = "com.intel.chrome.opentee.proxy";
@@ -185,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('connect-button').addEventListener(
     'click', connect);
   document.getElementById('send-message-button').addEventListener(
-    'click', sendNativeMessage);
+    'click', nativeMessageSendHandler);
   document.getElementById('mode-select-decrypt').addEventListener(
     'click', onDecryptMode);
   document.getElementById('mode-select-test').addEventListener(

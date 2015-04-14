@@ -9,6 +9,9 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 
+//base64
+#include "base64/base64.h"
+
 extern "C" {
 #include "tee_client_api.h"
 #include "cryptoki.h"
@@ -42,7 +45,7 @@ enum Command {
 
 static CK_FUNCTION_LIST_PTR func_list;
 static bool running;
-
+static CK_OBJECT_HANDLE g_key;
 using namespace rapidjson;
 
 uint32_t init_session(CK_SESSION_HANDLE* session)
@@ -74,21 +77,18 @@ uint32_t init_session(CK_SESSION_HANDLE* session)
 	fprintf(stderr,"Version : Major %d: Minor %d\n",
 	       info.cryptokiVersion.major, info.cryptokiVersion.minor);
 
-	fprintf(stderr, "getting slots\n");
 	ret = func_list->C_GetSlotList(1, available_slots, &num_slots);
 	if (ret != CKR_OK) {
 		printf("Failed to get the available slots: %ld\n", ret);
 		return 0;
 	}
 
-	fprintf(stderr, "trying to open session %u\n", available_slots[0]);
 	ret = func_list->C_OpenSession(available_slots[0], CKF_RW_SESSION | CKF_SERIAL_SESSION,
 				       NULL, NULL, session);
 	if (ret != CKR_OK) {
 		fprintf(stderr,"Failed to Open session the library: 0x%x\n", (uint32_t)ret);
 		return 1;
 	}
-	fprintf(stderr, "opened session\n");
 	ret = func_list->C_Login(*session, CKU_USER, (CK_BYTE_PTR)pin.c_str(), pin.length());
 	if (ret != CKR_OK) {
 		fprintf(stderr, "Failed to login: 0x%x\n", (uint32_t)ret);
@@ -153,6 +153,7 @@ Command cmd_to_enum(std::string cmd)
 //could return the key handle here
 CK_RV add_key(CK_SESSION_HANDLE* session, std::string keyid)
 {
+	EXTERR("%s", keyid.c_str());
 	//we use a "static" AES key for now
 	//thanks tanel <3
 	CK_MECHANISM mechanism = {CKM_AES_CBC, aes_IV, SIZE_OF_VEC(aes_IV)};
@@ -170,13 +171,26 @@ CK_RV add_key(CK_SESSION_HANDLE* session, std::string keyid)
 		{CKA_ENCRYPT, &ck_true, sizeof(ck_true)},
 		{CKA_DECRYPT, &ck_true, sizeof(ck_true)},
 		{CKA_ALLOWED_MECHANISMS, &allow_mech, sizeof(allow_mech)},
-		{CKA_ID, (CK_BYTE_PTR)keyid.c_str(), sizeof(keyid.c_str())}
+		{CKA_ID, (CK_BYTE_PTR)keyid.c_str(), sizeof(keyid.c_str())-1}
 	};
 	ret = func_list->C_CreateObject(*session, attrs, 7, &hKey);
 	if (ret != CKR_OK) {
 		EXTERR("Failed to create object: %lu : 0x%x", ret, (uint32_t)ret);
 		return 1;
 	}
+	EXTERR("created key I think");
+	g_key = hKey;
+	StringBuffer json_out;
+	Writer<StringBuffer> writer(json_out);
+	std::string key = "text";
+	std::string value = "Key created";
+
+	writer.StartObject();
+	writer.Key(key.c_str());
+	writer.String(value.c_str());
+	writer.EndObject();
+
+	send_msg_browser(json_out.GetString());
 	return 0;
 }
 
@@ -185,20 +199,21 @@ CK_OBJECT_HANDLE get_key_handle(std::string keyid, CK_KEY_TYPE keytype, CK_OBJEC
 	CK_RV ret = CKR_OK;
 	CK_ULONG count = 0;
 	CK_OBJECT_HANDLE_PTR object_handle = 0;
-
+	EXTERR("searching for");
+	EXTERR("%s", keyid.c_str());
 	//create CK_ATTRIBUTE_PTR template to match the key
 	CK_ATTRIBUTE key_object[3] = {
 		{CKA_CLASS, &obj_class, sizeof(obj_class)},
 		{CKA_KEY_TYPE, &keytype, sizeof(keytype)},
-		{CKA_ID, (CK_BYTE_PTR)keyid.c_str(), sizeof(keyid.c_str())}
+		//{CKA_ID, (CK_BYTE_PTR)keyid.c_str(), sizeof(keyid.c_str()) - 1}
 	};
 
 	//search the key
-	ret = func_list->C_FindObjectsInit(*session, key_object, 3);
+	ret = func_list->C_FindObjectsInit(*session, key_object, 2);
 
 	if (ret != CKR_OK)
 	{
-		ret = func_list->C_FindObjectsFinal(*session);
+		EXTERR("objectinit failed");
 		return 0;
 	}
 	ret = func_list->C_FindObjects(*session, object_handle, 1, &count);
@@ -206,6 +221,7 @@ CK_OBJECT_HANDLE get_key_handle(std::string keyid, CK_KEY_TYPE keytype, CK_OBJEC
 	if (ret != CKR_OK || count != 1 || !object_handle )
 	{
 		ret = func_list->C_FindObjectsFinal(*session);
+		EXTERR("findobjects failed %u %u %x",count,ret,object_handle);
 		return 0;
 	}
 
@@ -225,6 +241,9 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 	CK_RV ret = CKR_OK;
 	CK_OBJECT_HANDLE hKey;
 	CK_MECHANISM mechanism = {CKM_AES_CBC, aes_IV, SIZE_OF_VEC(aes_IV)};
+	char clear[16];
+	CK_ULONG clear_len = 16;
+
 	char cipher[2048];
 	CK_ULONG cipher_len = 2048;
 	//get key handle
@@ -232,8 +251,8 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 	//no we're not
 	//yes we are
 	//silence
-	hKey = get_key_handle((*json)["key"].GetString(), CKK_AES, CKO_SECRET_KEY, session);
-
+	hKey = g_key;//get_key_handle((*json)["key"].GetString(), CKK_AES, CKO_SECRET_KEY, session);
+	EXTERR("keyhandle %u", g_key);
 	//perform sanity checks?
 	if (!hKey)
 	{
@@ -247,13 +266,38 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 		EXTERR("failed to init encrypt");
 		return 1;
 	}
-	std::string payload = (*json)["payload"].GetString();
+	std::string payload = base64_decode((*json)["payload"].GetString());
+	EXTERR("%s %u", payload.c_str(), sizeof(payload.c_str()));
 
-	ret = func_list->C_Encrypt(*session, (CK_BYTE_PTR)payload.c_str(), SIZE_OF_VEC(payload.c_str()),
-				   (CK_BYTE_PTR)cipher, &cipher_len);
+	//break the payload down to blocksizes and add to encrypt
+	unsigned int j = 0;
+	unsigned int i = 0;
+	CK_ULONG cipherpart_len = 16;
+	for(i = 0; i < payload.length();)
+	{
+		memset(clear, 0, 16);
+		for(j = 0; j < clear_len && i < payload.length(); j++)
+		{
+			clear[j] = payload.at(i);
+			++i;
+		}
+		ret = func_list->C_EncryptUpdate(*session, (CK_BYTE_PTR)clear, clear_len,
+						 (CK_BYTE_PTR)cipher + i - j,
+						 &cipherpart_len);
+		if(ret)
+			EXTERR("encryptupdate failed with %u", ret);
+
+		EXTERR("ciphlen %u", cipherpart_len);
+	}
+	//ret = func_list->C_Encrypt(*session, (CK_BYTE_PTR)clear, clear_len,
+	//			   (CK_BYTE_PTR)cipher, &cipher_len);
+	ret = func_list->C_EncryptFinal(*session, NULL,0);
+	if(ret != CKR_OK)
+		EXTERR("encrypt failed %u", ret);
+
 	//perform some checks here
-	std::string output(cipher, cipher+cipher_len);
-
+	for(unsigned int i = 0; i < payload.length() + cipherpart_len; i++ )
+		fprintf(stderr, "%x", cipher[i]);
 	//formulate the result and push it back to the extension
 	std::string key;
 	std::string value = "ok";
@@ -266,7 +310,7 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 	writer.String(value.c_str());
 	key = "payload";
 	writer.Key(key.c_str());
-	writer.String(output.c_str());
+	writer.String((base64_encode((unsigned char*)cipher, i)).c_str());
 	writer.EndObject();
 
 	send_msg_browser(json_out.GetString());
@@ -281,14 +325,19 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 	CK_RV ret = CKR_OK;
 	CK_OBJECT_HANDLE hKey;
 	CK_MECHANISM mechanism = {CKM_AES_CBC, aes_IV, SIZE_OF_VEC(aes_IV)};
+	char encrypted[16];
+	CK_ULONG encrypted_len = 16;
 	char decrypted[2048];
 	CK_ULONG decrypted_len = 2048;
+
+	memset(decrypted,0,2048);
+
 	//get key handle
 	//we use aes hardcoded now because we're bad people
 	//no we're not
 	//yes we are
 	//silence
-	hKey = get_key_handle((*json)["key"].GetString(), CKK_AES, CKO_SECRET_KEY, session);
+	hKey = g_key;//get_key_handle((*json)["key"].GetString(), CKK_AES, CKO_SECRET_KEY, session);
 
 	//perform sanity checks?
 	if (!hKey)
@@ -303,9 +352,45 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 		EXTERR("Failed to init Decrypt: %lu : 0x%x", ret, (uint32_t)ret);
 		return 1;
 	}
-	std::string cipher = (*json)["payload"].GetString();
-	ret = func_list->C_Decrypt(*session, (CK_BYTE_PTR)cipher.c_str(), sizeof(cipher.c_str()),
-				   (CK_BYTE_PTR)decrypted, &decrypted_len);
+
+	std::string payload = base64_decode((*json)["payload"].GetString());
+	std::cerr << "payload_decoded: " << payload << std::endl;
+
+	//divide to stuff
+	//break the payload down to blocksizes and add to encrypt
+	unsigned int j = 0;
+	unsigned int i = 0;
+	CK_ULONG cipherpart_len = 16;
+
+	for(i = 0; i < payload.length();)
+	{
+		memset(encrypted, 0, 16);
+		for(j = 0; j < encrypted_len && i < payload.length(); j++)
+		{
+			encrypted[j] = payload.at(i);
+			++i;
+			EXTERR("enc: %c", encrypted[j]);
+		}
+		ret = func_list->C_DecryptUpdate(*session, (CK_BYTE_PTR)encrypted, encrypted_len,
+						 (CK_BYTE_PTR)decrypted + i - j,
+						 &cipherpart_len);
+		for (unsigned int x = 0; x < j; ++x)
+			EXTERR("dec: %02X", decrypted[x]);
+		EXTERR("ciphpart: %u", cipherpart_len);
+		if (ret)
+			EXTERR("decryptupdate failed %u",ret);
+	}
+	ret = func_list->C_DecryptFinal(*session, NULL,0);
+	std::cerr << "cipherpart len on final " << cipherpart_len << std::endl;
+	//ret = func_list->C_Decrypt(*session, (CK_BYTE_PTR)encrypted, encrypted_len,
+	//			   (CK_BYTE_PTR)decrypted, &decrypted_len);
+
+
+	for(unsigned int x = 0; x < i; x++)
+	{
+		if (x > 0) fprintf(stderr,":");
+		fprintf(stderr,"%02X", decrypted[x]);
+	}
 
 	if (ret != CKR_OK)
 	{
@@ -313,8 +398,6 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 		return 1;
 	}
 
-	//this consumes ridiculous amounts of ram
-	std::string output(decrypted, decrypted+decrypted_len);
 	//formulate the result and push it back to the extension
 	std::string key;
 	std::string value = "ok";
@@ -327,7 +410,7 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 	writer.String(value.c_str());
 	key = "payload";
 	writer.Key(key.c_str());
-	writer.String(output.c_str());
+	writer.String((base64_encode((unsigned char*)decrypted, i)).c_str());
 	writer.EndObject();
 
 	send_msg_browser(json_out.GetString());
@@ -398,12 +481,14 @@ uint32_t cmd_handler(CK_SESSION_HANDLE* session, Document* json)
 
 	//init object
 	//functionize this in a fancy way
-	writer.StartObject();
-	writer.Key(key.c_str());
-	writer.String(msg.c_str());
-	writer.EndObject();
+	if( cmd_to_enum(tmp) == CMD_HELLO ) {
+		writer.StartObject();
+		writer.Key(key.c_str());
+		writer.String(msg.c_str());
+		writer.EndObject();
 
-	send_msg_browser(json_out.GetString());
+		send_msg_browser(json_out.GetString());
+	}
 
 	return 0;
 }

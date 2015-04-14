@@ -9,5 +9,5 @@ CppApplication {
     consoleApplication: true
     destinationDirectory: '.'
 
-    files: ['main.cpp']
+    files: ['main.cpp','include/base64/base64.cpp']
 }
