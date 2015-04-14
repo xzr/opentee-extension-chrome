@@ -245,6 +245,7 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 	CK_ULONG clear_len = 16;
 
 	char cipher[2048];
+	memset(cipher,0,2048);
 	CK_ULONG cipher_len = 2048;
 	//get key handle
 	//we use aes hardcoded now because we're bad people
@@ -266,12 +267,13 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 		EXTERR("failed to init encrypt");
 		return 1;
 	}
+
 	std::string payload = base64_decode((*json)["payload"].GetString());
-	EXTERR("%s %u", payload.c_str(), sizeof(payload.c_str()));
 
 	//break the payload down to blocksizes and add to encrypt
-	unsigned int j = 0;
 	unsigned int i = 0;
+	unsigned int j = 0;
+
 	CK_ULONG cipherpart_len = 16;
 	for(i = 0; i < payload.length();)
 	{
@@ -289,15 +291,18 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 
 		EXTERR("ciphlen %u", cipherpart_len);
 	}
-	//ret = func_list->C_Encrypt(*session, (CK_BYTE_PTR)clear, clear_len,
-	//			   (CK_BYTE_PTR)cipher, &cipher_len);
 	ret = func_list->C_EncryptFinal(*session, NULL,0);
 	if(ret != CKR_OK)
 		EXTERR("encrypt failed %u", ret);
 
-	//perform some checks here
-	for(unsigned int i = 0; i < payload.length() + cipherpart_len; i++ )
-		fprintf(stderr, "%x", cipher[i]);
+
+	//this is a nasty hack, sorry
+	//i will find a better way one day
+	if( i < 16)
+		i=16;
+
+
+	std::string output = base64_encode((unsigned char*)cipher, i);
 	//formulate the result and push it back to the extension
 	std::string key;
 	std::string value = "ok";
@@ -310,7 +315,7 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 	writer.String(value.c_str());
 	key = "payload";
 	writer.Key(key.c_str());
-	writer.String((base64_encode((unsigned char*)cipher, i)).c_str());
+	writer.String(output.c_str(), output.length());
 	writer.EndObject();
 
 	send_msg_browser(json_out.GetString());
@@ -354,43 +359,29 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 	}
 
 	std::string payload = base64_decode((*json)["payload"].GetString());
-	std::cerr << "payload_decoded: " << payload << std::endl;
+	std::cerr << "payload_decoded: " << payload << "payloadlen " << payload.length() << std::endl;
 
 	//divide to stuff
 	//break the payload down to blocksizes and add to encrypt
-	unsigned int j = 0;
 	unsigned int i = 0;
+	unsigned int j = 0;
 	CK_ULONG cipherpart_len = 16;
 
 	for(i = 0; i < payload.length();)
 	{
 		memset(encrypted, 0, 16);
-		for(j = 0; j < encrypted_len && i < payload.length(); j++)
+		for(j = 0; j < encrypted_len && i < payload.length(); ++j)
 		{
 			encrypted[j] = payload.at(i);
 			++i;
-			EXTERR("enc: %c", encrypted[j]);
 		}
 		ret = func_list->C_DecryptUpdate(*session, (CK_BYTE_PTR)encrypted, encrypted_len,
 						 (CK_BYTE_PTR)decrypted + i - j,
 						 &cipherpart_len);
-		for (unsigned int x = 0; x < j; ++x)
-			EXTERR("dec: %02X", decrypted[x]);
-		EXTERR("ciphpart: %u", cipherpart_len);
 		if (ret)
 			EXTERR("decryptupdate failed %u",ret);
 	}
 	ret = func_list->C_DecryptFinal(*session, NULL,0);
-	std::cerr << "cipherpart len on final " << cipherpart_len << std::endl;
-	//ret = func_list->C_Decrypt(*session, (CK_BYTE_PTR)encrypted, encrypted_len,
-	//			   (CK_BYTE_PTR)decrypted, &decrypted_len);
-
-
-	for(unsigned int x = 0; x < i; x++)
-	{
-		if (x > 0) fprintf(stderr,":");
-		fprintf(stderr,"%02X", decrypted[x]);
-	}
 
 	if (ret != CKR_OK)
 	{
@@ -398,6 +389,11 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 		return 1;
 	}
 
+	if (i<16)
+		i=16;
+
+	std::string output = base64_encode((unsigned char*)decrypted, i);
+	std::cerr << "output is " << output << " and len is " << output.length();
 	//formulate the result and push it back to the extension
 	std::string key;
 	std::string value = "ok";
@@ -410,7 +406,7 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 	writer.String(value.c_str());
 	key = "payload";
 	writer.Key(key.c_str());
-	writer.String((base64_encode((unsigned char*)decrypted, i)).c_str());
+	writer.String(output.c_str(), output.length());
 	writer.EndObject();
 
 	send_msg_browser(json_out.GetString());
