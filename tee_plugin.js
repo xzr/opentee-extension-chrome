@@ -1,6 +1,7 @@
 var g_port = null;
 var g_mode = null;
-
+var g_reply = null;
+var g_replywaiting = false;
 var mode_enum = Object.freeze( {
   "NOT_CONNECTED" : 0,
   "CONNECTED" : 1,
@@ -222,6 +223,14 @@ function loadScript(name) {
   //document.getElementsByTagName("head")[0].appendChild( script );
 }
 
+function content_decrypt(msg)
+{
+  var json = null;
+
+  json = {"text":"decrypt", "key":"demo", "payload":msg};
+  sendNativeMessage(json);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   //load libs
   //loadScript("tee_crypto.js");
@@ -243,4 +252,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
   g_mode = "NOT_CONNECTED";
   updateUiState();
+
+  chrome.runtime.onMessageExternal.addListener(
+  function(request, sender, sendResponse) {
+    if (request.datain) {
+      console.log(request.datain);
+      if(!g_port)
+      {
+          sendResponse({dataout:"TEE not connected"});
+          return;
+      }
+      var data = request.datain;
+      //data = data.replace('[CRYPT]', '');
+      console.log("setting reply");
+      g_reply = function(response){ sendResponse(response);};
+      g_replywaiting = true;
+      console.log("done setting reply");
+      content_decrypt(data);
+    }
+  });
 });

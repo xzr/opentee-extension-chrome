@@ -298,8 +298,8 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 
 	//this is a nasty hack, sorry
 	//i will find a better way one day
-	if( i < 16)
-		i=16;
+	if (i%16)
+		i = i + (16 - i%16);
 
 
 	std::string output = base64_encode((unsigned char*)cipher, i);
@@ -389,8 +389,8 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 		return 1;
 	}
 
-	if (i<16)
-		i=16;
+	if (i%16)
+		i = i + (16 - i%16);
 
 	std::string output = base64_encode((unsigned char*)decrypted, i);
 	std::cerr << "output is " << output << " and len is " << output.length();
