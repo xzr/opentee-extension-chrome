@@ -2,6 +2,7 @@
 var g_port = null;
 var g_mode = null;
 var g_reply = null;
+var g_replymode = null;
 
 var mode_enum = Object.freeze( {
   "NOT_CONNECTED" : 0,
@@ -232,6 +233,13 @@ function content_decrypt(msg)
   sendNativeMessage(json);
 }
 
+function content_encrypt(msg)
+{
+  var json = null;
+  json = {"text":"encrypt", "key":"demo", "payload":utf8_to_b64(msg)};
+  sendNativeMessage(json);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   //load libs
   //loadScript("tee_crypto.js");
@@ -267,10 +275,15 @@ document.addEventListener('DOMContentLoaded', function () {
         var data = request.datain;
 
         g_reply = port;
+        g_replymode = "DECRYPT";
         content_decrypt(data);
       }
       if (request.datatocrypt) {
+        console.log(request.datatocrypt);
         //sendResponse({dataout:request.datatocrypt.replace('o','0')});
+        g_reply = port;
+        g_replymode = "ENCRYPT";
+        content_encrypt(request.datatocrypt);
       }
   });});
 });

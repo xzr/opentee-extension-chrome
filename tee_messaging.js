@@ -7,7 +7,13 @@ function tee_parse_json(msg) {
   {
     console.log("moi");
     console.log(msg.payload);
-    var tmp = window.atob(msg.payload)
+    var tmp = null;
+
+    if(g_replymode === "DECRYPT")
+      tmp = window.atob(msg.payload)
+    else
+      tmp = msg.payload;
+
     g_reply.postMessage({dataout:tmp});
     return;
   }
