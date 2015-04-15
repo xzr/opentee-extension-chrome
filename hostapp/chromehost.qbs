@@ -8,5 +8,5 @@ CppApplication {
     Depends { name: "tee_pkcs11" }
     consoleApplication: true
     destinationDirectory: '.'
-    files: ['main.cpp','include/base64/base64.cpp']
+    files: ['main.cpp' 'base64/base64.cpp']
 }
