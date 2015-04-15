@@ -56,7 +56,7 @@ function encrypt(id) {
 							console.log('encrypting content(' + id + ')<-');
 						if (response.dataout) {
 							console.log(response.dataout);
-							element.textContent=response.dataout;
+							element.textContent="crypted_stuff " + response.dataout + "-";
 							element.style.visibility = 'visible';
 						}
 					});
