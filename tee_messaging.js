@@ -3,14 +3,12 @@ function tee_parse_json(msg) {
   console.log(JSON.stringify(msg));
 
   //check if we are processing a request from extension
-  if(g_replywaiting === true)
+  if(g_reply)
   {
     console.log("moi");
     console.log(msg.payload);
     var tmp = window.atob(msg.payload)
-    g_reply({dataout:tmp});
-    g_reply = null;
-    g_replywaiting = false;
+    g_reply.postMessage({dataout:tmp});
     return;
   }
 

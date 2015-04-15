@@ -11,16 +11,15 @@ function decrypt(id) {
 	console.log('showing content(' + id + ')->');
 
 	var element = document.getElementById(id);
-	console.log(element.textContent);
 	//console.log(element.textContent);
 	var datatouncrypt = element.textContent.split('-')[0];
-
 	// Make a simple request:
-	chrome.runtime.sendMessage("knldjmfmopnpolahpmmgbagdohdnhkik", {datain:datatouncrypt},
-	  function(response) {
+	var port = chrome.runtime.connect("knldjmfmopnpolahpmmgbagdohdnhkik",{name: "opentee_dec"});
+	port.postMessage({datain:datatouncrypt});
+	port.onMessage.addListener(function(response) {
         console.log('showing content(' + id + ')<-');
 	    if (response.dataout) {
-				console.log(response.dataout)
+				console.log(response.dataout);
 	      element.textContent=response.dataout;
 	      element.style.visibility = 'visible';
 	    }
@@ -35,35 +34,59 @@ var script = document.createElement('script');
 script.textContent = actualCode;
 (document.head||document.documentElement).appendChild(script);
 
+
+var actualCode = '' +
+function encrypt(id) {
+
+        console.log('encrypting content(' + id + ')->');
+
+        var element = document.getElementById(id);
+        console.log(element.textContent);
+                // Make a simple request:
+        chrome.runtime.sendMessage("knldjmfmopnpolahpmmgbagdohdnhkik", {datatocrypt:element.textContent},
+          function(response) {
+        console.log('encrypting content(' + id + ')<-');
+            if (response.dataout) {
+              element.innerHTML="crypted_stuff " + response.dataout + "-";
+            }
+          });
+}; + '';
+
+var script = document.createElement('script');
+script.textContent = actualCode;
+(document.head||document.documentElement).appendChild(script);
+
 function reeeplace() {
-	$( ".a3s:contains(crypted_stuff)" ).each(function() {
+        $( ".a3s:contains(crypted_stuff)").each(function() {
 
 
-		cryptid = cryptid + 1;
-		var cryid = "cryptid" + cryptid;
-		var old_content = $(this).html();
-		old_content = old_content.replace('crypted_stuff ','');
-		old_content = old_content.replace('crypted_stuff','');
+                if($(this).hasClass("handled")) {
 
-		$(this).empty().append("<div class='crypted' id='"+cryid+"'>" + old_content + "</div>");
-		$(this).append("<div class='crypted_info' onclick='decrypt(\""+cryid+"\");style.visibility=\"hidden\";'>content is crypted, click here to show</div>");
-		$(this).children(".crypted").css("visibility","hidden");
-		$(this).children(".crypted_info").css("background-color","red");
-		console.log('fd something');
+                } else {
+                        $(this).addClass("handled")
+                        cryptid = cryptid + 1;
+                        var cryid = "cryptid" + cryptid;
+                        var old_content = $(this).html().replace('crypted_stuff ','');
+                        $(this).empty().append("<div class='crypted' id='"+cryid+"'>" + old_content + "</div>");
+                        $(this).append("<div class='crypted_info' onclick='decrypt(\""+cryid+"\");style.visibility=\"hidden\";'>content is crypted, click here to show</div>");
+                        $(this).children(".crypted").css("opacity","0.3");
+                        $(this).children(".crypted_info").css("background-color","red");
+                        console.log('added uncrypt button');
+                }
+         });
 
-	 });
-//	$( ".a3s" ).children( ':contains(crypted_stuff)').each(function() {
-//
-//		var old_content = $(this).html();
-//		//old_content = old_content.replace('crypted_stuff','vault_stuff');
-//		$(this).empty().append("<div class='crypted'>" + old_content + "</div>");
-//		$(this).append("<div class='crypted_info'>content is crypted</div>");
-//		$(this).children(".crypted").css("visibility","hidden");
-//		$(this).children(".crypted_info").css("background-color","red");
-//		console.log('fd something');
-//	 });
+        $( ".editable").each(function() {
+                if($(this).hasClass("encryption")) {
+
+                } else {
+                        $(this).addClass("encryption");
+                        console.log("id" + $(this).attr('id') );
+                        $(this).closest('tr').append("<td class='Ap'><div class='crypted_info' style=\"background-color:green;color:white\" onclick='encrypt(\""+$(this).attr('id') +"\");style.visibility=\"hidden\";'>encrypt</div></td>");
+                }
+        } );
 
 }
+
 
 
 reeeplace();

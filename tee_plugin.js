@@ -1,7 +1,8 @@
+
 var g_port = null;
 var g_mode = null;
 var g_reply = null;
-var g_replywaiting = false;
+
 var mode_enum = Object.freeze( {
   "NOT_CONNECTED" : 0,
   "CONNECTED" : 1,
@@ -253,22 +254,23 @@ document.addEventListener('DOMContentLoaded', function () {
   g_mode = "NOT_CONNECTED";
   updateUiState();
 
-  chrome.runtime.onMessageExternal.addListener(
-  function(request, sender, sendResponse) {
-    if (request.datain) {
-      console.log(request.datain);
-      if(!g_port)
-      {
-          sendResponse({dataout:"TEE not connected"});
-          return;
+  chrome.runtime.onConnectExternal.addListener( function(port) {
+    console.assert(port.name == "opentee_dec");
+    port.onMessage.addListener(function(request) {
+      if (request.datain) {
+        console.log(request.datain);
+        if(!g_port)
+        {
+            //post a message
+            return;
+        }
+        var data = request.datain;
+
+        g_reply = port;
+        content_decrypt(data);
       }
-      var data = request.datain;
-      //data = data.replace('[CRYPT]', '');
-      console.log("setting reply");
-      g_reply = function(response){ sendResponse(response);};
-      g_replywaiting = true;
-      console.log("done setting reply");
-      content_decrypt(data);
-    }
-  });
+      if (request.datatocrypt) {
+        //sendResponse({dataout:request.datatocrypt.replace('o','0')});
+      }
+  });});
 });

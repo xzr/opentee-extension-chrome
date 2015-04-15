@@ -1,7 +1,5 @@
 //connects to tee and offers fancy services
-
 var g_port = null;
-
 //Connects to an application through the messaging service
 //This requires the CA to be registered with chrome
 function tee_connect(hostname) {
