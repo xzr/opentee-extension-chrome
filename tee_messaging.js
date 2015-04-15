@@ -15,6 +15,8 @@ function tee_parse_json(msg) {
       tmp = msg.payload;
 
     g_reply.postMessage({dataout:tmp});
+    g_reply.disconnect();
+    g_reply = null;
     return;
   }
 
