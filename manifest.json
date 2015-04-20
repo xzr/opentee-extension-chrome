@@ -19,11 +19,14 @@
   "content_scripts": [
     {
       "matches": ["https://mail.google.com/*", "file://*"],
-      "js": ["gmail/jquery.js","gmail/replace.js"],
+      "js": ["gmail/jquery.js","gmail/content.js"],
       "run_at":"document_idle"
     }
   ],
   "externally_connectable": {
     "matches": ["https://mail.google.com/*"]
-  }
+  },
+  "web_accessible_resources": [
+    "gmail/inject.js"
+  ]
 }
