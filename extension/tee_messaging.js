@@ -5,7 +5,6 @@ function tee_parse_json(msg) {
   //check if we are processing a request from extension
   if(g_reply)
   {
-    console.log("moi");
     console.log(msg.payload);
     var tmp = null;
 
@@ -17,6 +16,7 @@ function tee_parse_json(msg) {
     g_reply.postMessage({dataout:tmp});
     g_reply.disconnect();
     g_reply = null;
+    g_replymode = null;
     return;
   }
 
@@ -29,7 +29,6 @@ function tee_parse_json(msg) {
       break;
     case "DECRYPT":
       //update the output with payload
-      console.log("i should be in decrypt mode")
       displayResponse(window.atob(msg.payload));
       break;
     case "ENCRYPT":

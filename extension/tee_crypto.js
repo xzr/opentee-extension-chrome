@@ -30,7 +30,6 @@ function tee_generate_keypair(param) {
 }
 
 function tee_encrypt(param) {
-  console.log("derps");
 }
 
 function tee_decrypt(param) {
