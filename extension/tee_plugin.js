@@ -236,7 +236,7 @@ function content_decrypt(msg)
 function content_encrypt(msg)
 {
   var json = null;
-  json = {"text":"encrypt", "key":"demo", "payload":utf8_to_b64(msg)};
+  json = {"text":"encrypt", "key":"demo", "payload":msg};
   sendNativeMessage(json);
 }
 
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log(request.datain);
         if(!g_port)
         {
-            //post a message
+            //TODO: post a message
             return;
         }
         var data = request.datain;
@@ -280,7 +280,6 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       if (request.datatocrypt) {
         console.log(request.datatocrypt);
-        //sendResponse({dataout:request.datatocrypt.replace('o','0')});
         g_reply = port;
         g_replymode = "ENCRYPT";
         content_encrypt(request.datatocrypt);

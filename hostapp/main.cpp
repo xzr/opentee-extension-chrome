@@ -269,6 +269,7 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 	}
 
 	std::string payload = base64_decode((*json)["payload"].GetString());
+	std::cerr << "encoding payload is: " << payload << std::endl;
 
 	//break the payload down to blocksizes and add to encrypt
 	unsigned int i = 0;

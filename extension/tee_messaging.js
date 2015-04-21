@@ -1,5 +1,6 @@
 function tee_parse_json(msg) {
   //check the mode we are on and do stuff based on that
+  console.log("parsing json");
   console.log(JSON.stringify(msg));
 
   //check if we are processing a request from extension
@@ -8,10 +9,7 @@ function tee_parse_json(msg) {
     console.log(msg.payload);
     var tmp = null;
 
-    if(g_replymode === "DECRYPT")
-      tmp = window.atob(msg.payload)
-    else
-      tmp = msg.payload;
+    tmp = msg.payload;
 
     g_reply.postMessage({dataout:tmp});
     g_reply.disconnect();
