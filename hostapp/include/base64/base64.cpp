@@ -22,7 +22,10 @@
    3. This notice may not be removed or altered from any source distribution.
 
    René Nyffenegger rene.nyffenegger@adp-gmbh.ch
-
+*/
+/*
+	Edit: Added is_str_base64 function for checking if a string is valid base64_chars
+	(c) Atte Pellikka (atte.pellikka@gmail.com)
 */
 
 #include "base64.h"
@@ -35,7 +38,7 @@ static const std::string base64_chars =
 
 
 static inline bool is_base64(unsigned char c) {
-  return (isalnum(c) || (c == '+') || (c == '/'));
+  return (isalnum(c) || (c == '+') || (c == '/') || (c == '='));
 }
 
 std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
@@ -120,4 +123,15 @@ std::string base64_decode(std::string const& encoded_string) {
   }
 
   return ret;
+}
+
+//added for checking strings
+bool is_str_base64(std::string const& check_string)
+{
+	for(unsigned int i = 0; i < check_string.length(); ++i)
+	{
+		if( !is_base64(check_string.at(i)) )
+			return false;
+	}
+	return true;
 }

@@ -59,19 +59,19 @@ uint32_t init_session(CK_SESSION_HANDLE* session)
 	ret = C_GetFunctionList(&func_list);
 	if (ret != CKR_OK || func_list == NULL) {
 		fprintf(stderr,"Failed to get function list: %ld\n", ret);
-		return 1;
+		return ret;
 	}
 
 	ret = func_list->C_Initialize(NULL);
 	if (ret != CKR_OK) {
 		fprintf(stderr,"Failed to initialize the library: %ld\n", ret);
-		return 1;
+		return ret;
 	}
 
 	ret = C_GetInfo(&info);
 	if (ret != CKR_OK) {
 		fprintf(stderr,"Failed to get the library info: %ld\n", ret);
-		return 1;
+		return ret;
 	}
 
 	fprintf(stderr,"Version : Major %d: Minor %d\n",
@@ -80,21 +80,20 @@ uint32_t init_session(CK_SESSION_HANDLE* session)
 	ret = func_list->C_GetSlotList(1, available_slots, &num_slots);
 	if (ret != CKR_OK) {
 		printf("Failed to get the available slots: %ld\n", ret);
-		return 0;
+		return ret;
 	}
 
 	ret = func_list->C_OpenSession(available_slots[0], CKF_RW_SESSION | CKF_SERIAL_SESSION,
 				       NULL, NULL, session);
 	if (ret != CKR_OK) {
 		fprintf(stderr,"Failed to Open session the library: 0x%x\n", (uint32_t)ret);
-		return 1;
+		return ret;
 	}
 	ret = func_list->C_Login(*session, CKU_USER, (CK_BYTE_PTR)pin.c_str(), pin.length());
 	if (ret != CKR_OK) {
 		fprintf(stderr, "Failed to login: 0x%x\n", (uint32_t)ret);
-		return 1;
+		return ret;
 	}
-	fprintf(stderr, "initialized\n");
 	return 0;
 }
 
@@ -105,7 +104,7 @@ uint32_t finalize_session(CK_SESSION_HANDLE* session)
 	ret = func_list->C_Logout(*session);
 	if (ret != CKR_OK) {
 		fprintf(stderr,"Failed to logout: 0x%x\n", (uint32_t)ret);
-		return 1;
+		return ret;
 	}
 
 	func_list->C_CloseSession(*session);
@@ -113,7 +112,7 @@ uint32_t finalize_session(CK_SESSION_HANDLE* session)
 	ret = func_list->C_Finalize(NULL);
 	if (ret != CKR_OK) {
 		fprintf(stderr,"Failed to Finalize the library: %ld\n", ret);
-		return 1;
+		return ret;
 	}
 	fprintf(stderr, "finalized\n");
 	return 0;
@@ -156,7 +155,6 @@ CK_RV add_key(CK_SESSION_HANDLE* session, std::string keyid)
 	EXTERR("%s", keyid.c_str());
 	//we use a "static" AES key for now
 	//thanks tanel <3
-	CK_MECHANISM mechanism = {CKM_AES_CBC, aes_IV, SIZE_OF_VEC(aes_IV)};
 	CK_BBOOL ck_true = CK_TRUE;
 	CK_OBJECT_CLASS obj_class = CKO_SECRET_KEY;
 	CK_OBJECT_HANDLE hKey = 0;
@@ -174,16 +172,21 @@ CK_RV add_key(CK_SESSION_HANDLE* session, std::string keyid)
 		{CKA_ID, (CK_BYTE_PTR)keyid.c_str(), sizeof(keyid.c_str())-1}
 	};
 	ret = func_list->C_CreateObject(*session, attrs, 7, &hKey);
+
+	std::string key = "text";
+	std::string value;
+
 	if (ret != CKR_OK) {
 		EXTERR("Failed to create object: %lu : 0x%x", ret, (uint32_t)ret);
-		return 1;
+		value = "error";
+	} else {
+		g_key = hKey;
+		value = "ok";
 	}
-	EXTERR("created key I think");
-	g_key = hKey;
+
 	StringBuffer json_out;
 	Writer<StringBuffer> writer(json_out);
-	std::string key = "text";
-	std::string value = "Key created";
+
 
 	writer.StartObject();
 	writer.Key(key.c_str());
@@ -191,7 +194,7 @@ CK_RV add_key(CK_SESSION_HANDLE* session, std::string keyid)
 	writer.EndObject();
 
 	send_msg_browser(json_out.GetString());
-	return 0;
+	return ret;
 }
 
 CK_OBJECT_HANDLE get_key_handle(std::string keyid, CK_KEY_TYPE keytype, CK_OBJECT_CLASS obj_class, CK_SESSION_HANDLE* session)
@@ -221,7 +224,7 @@ CK_OBJECT_HANDLE get_key_handle(std::string keyid, CK_KEY_TYPE keytype, CK_OBJEC
 	if (ret != CKR_OK || count != 1 || !object_handle )
 	{
 		ret = func_list->C_FindObjectsFinal(*session);
-		EXTERR("findobjects failed %u %u %x",count,ret,object_handle);
+		EXTERR("findobjects failed %lu %lu",count,ret);
 		return 0;
 	}
 
@@ -241,19 +244,20 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 	CK_RV ret = CKR_OK;
 	CK_OBJECT_HANDLE hKey;
 	CK_MECHANISM mechanism = {CKM_AES_CBC, aes_IV, SIZE_OF_VEC(aes_IV)};
-	char clear[16];
 	CK_ULONG clear_len = 16;
+	char clear[clear_len];
 
-	char cipher[2048];
-	memset(cipher,0,2048);
 	CK_ULONG cipher_len = 2048;
+	char cipher[cipher_len];
+	memset(cipher,0,cipher_len);
+
 	//get key handle
 	//we use aes hardcoded now because we're bad people
 	//no we're not
 	//yes we are
 	//silence
 	hKey = g_key;//get_key_handle((*json)["key"].GetString(), CKK_AES, CKO_SECRET_KEY, session);
-	EXTERR("keyhandle %u", g_key);
+	EXTERR("keyhandle %lu", g_key);
 	//perform sanity checks?
 	if (!hKey)
 	{
@@ -265,12 +269,16 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 	if (ret != CKR_OK)
 	{
 		EXTERR("failed to init encrypt");
-		return 1;
+		return ret;
 	}
 
-	std::string payload = base64_decode((*json)["payload"].GetString());
+	std::string payload = (*json)["payload"].GetString();
+	if(!is_str_base64(payload)) {
+		EXTERR("not valid b64");
+		return 1;
+	}
+	payload = base64_decode((*json)["payload"].GetString());
 	std::cerr << "encoding payload is: " << payload << std::endl;
-
 	//break the payload down to blocksizes and add to encrypt
 	unsigned int i = 0;
 	unsigned int j = 0;
@@ -287,18 +295,22 @@ uint32_t encrypt(CK_SESSION_HANDLE* session, Document* json)
 		ret = func_list->C_EncryptUpdate(*session, (CK_BYTE_PTR)clear, clear_len,
 						 (CK_BYTE_PTR)cipher + i - j,
 						 &cipherpart_len);
-		if(ret)
-			EXTERR("encryptupdate failed with %u", ret);
-
-		EXTERR("ciphlen %u", cipherpart_len);
+		if(ret) {
+			EXTERR("encryptupdate failed with %lu", ret);
+			return ret;
+		}
+		EXTERR("ciphlen %lu", cipherpart_len);
 	}
 	ret = func_list->C_EncryptFinal(*session, NULL,0);
-	if(ret != CKR_OK)
-		EXTERR("encrypt failed %u", ret);
-
+	if(ret != CKR_OK) {
+		EXTERR("encrypt failed %lu", ret);
+		return ret;
+	}
 
 	//this is a nasty hack, sorry
 	//i will find a better way one day
+	//actually it's not so bad
+	//fixes padding
 	if (i%16)
 		i = i + (16 - i%16);
 
@@ -331,12 +343,16 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 	CK_RV ret = CKR_OK;
 	CK_OBJECT_HANDLE hKey;
 	CK_MECHANISM mechanism = {CKM_AES_CBC, aes_IV, SIZE_OF_VEC(aes_IV)};
-	char encrypted[16];
-	CK_ULONG encrypted_len = 16;
-	char decrypted[2048];
-	CK_ULONG decrypted_len = 2048;
 
-	memset(decrypted,0,2048);
+	CK_ULONG encrypted_len = 16;
+	char encrypted[encrypted_len];
+
+	CK_ULONG decrypted_len = 2048;
+	char decrypted[decrypted_len];
+
+	memset(decrypted,0,decrypted_len);
+
+	//TODO: add using an arbitrary sized buffer
 
 	//get key handle
 	//we use aes hardcoded now because we're bad people
@@ -356,10 +372,16 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 	if (ret != CKR_OK)
 	{
 		EXTERR("Failed to init Decrypt: %lu : 0x%x", ret, (uint32_t)ret);
-		return 1;
+		return ret;
 	}
 
-	std::string payload = base64_decode((*json)["payload"].GetString());
+	//TODO: check valid b64
+	std::string payload = (*json)["payload"].GetString();
+	if(!is_str_base64(payload)) {
+		EXTERR("not valid b64");
+		return 1;
+	}
+	payload = base64_decode((*json)["payload"].GetString());
 	std::cerr << "payload_decoded: " << payload << "payloadlen " << payload.length() << std::endl;
 
 	//divide to stuff
@@ -379,17 +401,20 @@ uint32_t decrypt(CK_SESSION_HANDLE* session, Document* json)
 		ret = func_list->C_DecryptUpdate(*session, (CK_BYTE_PTR)encrypted, encrypted_len,
 						 (CK_BYTE_PTR)decrypted + i - j,
 						 &cipherpart_len);
-		if (ret)
-			EXTERR("decryptupdate failed %u",ret);
+		if (ret) {
+			EXTERR("decryptupdate failed %lu",ret);
+			return ret;
+		}
 	}
 	ret = func_list->C_DecryptFinal(*session, NULL,0);
 
 	if (ret != CKR_OK)
 	{
-		EXTERR("Failed to Decrypt: %lu : 0x%x", ret, (uint32_t)ret);
-		return 1;
+		EXTERR("Failed to finalize Decrypt: %lu : 0x%x", ret, (uint32_t)ret);
+		return ret;
 	}
 
+	//adjust padding
 	if (i%16)
 		i = i + (16 - i%16);
 
@@ -430,6 +455,7 @@ uint32_t cmd_handler(CK_SESSION_HANDLE* session, Document* json)
 	std::string tmp;
 	std::string key;
 	std::string msg;
+	uint32_t ret = 0;
 	//create writer for the reply
 
 	key = "text";
@@ -457,15 +483,15 @@ uint32_t cmd_handler(CK_SESSION_HANDLE* session, Document* json)
 			break;
 		case CMD_ENCRYPT:
 			msg = "execute encrypt";
-			encrypt(session, json);
+			ret = encrypt(session, json);
 			break;
 		case CMD_DECRYPT:
 			msg = "execute decrypt";
-			decrypt(session, json);
+			ret = decrypt(session, json);
 			break;
 		case CMD_ADDKEY:
 			msg = "execute addkey";
-			add_key(session, (*json)["key"].GetString());
+			ret = add_key(session, (*json)["key"].GetString());
 			break;
 		case CMD_REMKEY:
 			msg = "execute remkey";
@@ -478,7 +504,10 @@ uint32_t cmd_handler(CK_SESSION_HANDLE* session, Document* json)
 
 	//init object
 	//functionize this in a fancy way
-	if( cmd_to_enum(tmp) == CMD_HELLO ) {
+	if( cmd_to_enum(tmp) == CMD_HELLO || ret ) {
+		if(ret)
+			msg = "error";
+
 		writer.StartObject();
 		writer.Key(key.c_str());
 		writer.String(msg.c_str());
@@ -494,8 +523,6 @@ int main() {
 	//init session
 	std::string in_msg = "";
 	unsigned int in_msg_len = 0;
-	std::string out_msg = "";
-	unsigned int out_msg_len = 0;
 	Document json_in;
 	unsigned int read_char = 0;
 	uint32_t ret = 0;
@@ -506,10 +533,10 @@ int main() {
 	ret = init_session(&session);
 
 	if(ret)
-		return 1;
+		return ret;
 
 	//loop and listen and reply
-
+	//TODO: add session termination on null message
 	while(running)
 	{
 		//herpderp
@@ -542,17 +569,11 @@ int main() {
 		//reset variables
 		in_msg_len = 0;
 		in_msg = "";
-		out_msg_len = 0;
-		out_msg = "";
 	}
-
-	//parse json
-	//pass on msg to ta
-
 	//finalize session
 	ret = finalize_session(&session);
 
 	if (ret)
-		return 1;
+		return ret;
 	return 0;
 }

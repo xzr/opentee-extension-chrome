@@ -1,5 +1,10 @@
 function tee_parse_json(msg) {
   //check the mode we are on and do stuff based on that
+  if (msg.text === "error") {
+    console.log("there was an error");
+    return;
+  }
+
   console.log("parsing json");
   console.log(JSON.stringify(msg));
 
